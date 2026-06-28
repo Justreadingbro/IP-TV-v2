@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPTV LUX · premium channel browser</title>
+<style>
+:root {
+  --bg: #0b0b0d;
+  --surface: #141418;
+  --surface2: #1c1c22;
+  --fg: #ecedf0;
+  --fg2: #c8c9d0;
+  --muted: #78788a;
+  --border: #26262e;
+  --accent: #4a7cff;
+  --accent-soft: color-mix(in oklch, var(--accent) 18%, transparent);
+  --red: #e84a4a;
+  --green: #34d48c;
+  --yellow: #f0c040;
+  --font-display: 'Iowan Old Style', 'Charter', Georgia, 'Times New Roman', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --gap: 12px;
+  --gap-lg: 24px;
+  --gap-xl: 40px;
+  --header-h: 60px;
+  --filter-h: 52px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{text-size-adjust:100%;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:var(--font-body);font-size:15px;line-height:1.5;
+  text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:0;color:inherit}
+input{font:inherit;border:0;background:0;color:inherit;outline:0}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+.header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:var(--header-h);
+  background:color-mix(in oklch, var(--bg) 90%, transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 var(--gap-lg);gap:var(--gap-lg);
+}
+.header-brand{font-family:var(--font-display);font-size:20px;font-weight:600;white-space:nowrap}
+.header-brand span{color:var(--accent)}
+.header-search{
+  flex:1;max-width:520px;position:relative;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:0 14px;display:flex;align-items:center;gap:10px;
+  transition:border-color .15s;
+}
+.header-search:focus-within{border-color:var(--accent)}
+.header-search .icon{color:var(--muted);font-size:14px;flex-shrink:0;opacity:.7}
+.header-search input{flex:1;height:36px;font-size:14px;background:transparent;color:var(--fg)}
+.header-search input::placeholder{color:var(--muted)}
+.header-search .clear{
+  display:none;font-size:16px;color:var(--muted);padding:4px;border-radius:50%;
+  cursor:pointer;line-height:1;
+}
+.header-search .clear.show{display:block}
+.header-search .clear:hover{background:var(--surface2);color:var(--fg)}
+.header-actions{display:flex;align-items:center;gap:var(--gap)}
+.header-count{font-size:12px;color:var(--muted);white-space:nowrap;font-family:var(--font-mono)}
+@media(max-width:640px){
+  .header{padding:0 var(--gap);gap:var(--gap)}
+  .header-brand{font-size:16px}
+  .header-search{max-width:none}
+  .header-count{display:none}
+}
+
+.filterbar{
+  position:fixed;top:var(--header-h);left:0;right:0;z-index:99;
+  height:var(--filter-h);
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 var(--gap-lg);gap:var(--gap);overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.filterbar::-webkit-scrollbar{display:none}
+.filter-select{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;padding:6px 12px;font-size:13px;color:var(--fg2);
+  white-space:nowrap;display:flex;align-items:center;gap:6px;cursor:pointer;
+  transition:border-color .15s;flex-shrink:0;
+}
+.filter-select:hover{border-color:var(--muted)}
+.filter-select.active{border-color:var(--accent);color:var(--accent)}
+.filter-select .arrow{font-size:8px;margin-left:2px;opacity:.6}
+.filter-options{
+  display:none;position:fixed;top:calc(var(--header-h) + var(--filter-h));
+  left:0;right:0;z-index:98;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  max-height:min(60vh,400px);overflow-y:auto;
+  padding:8px var(--gap-lg) var(--gap);
+}
+.filter-options.open{display:block}
+.filter-options-inner{display:flex;flex-wrap:wrap;gap:6px}
+.filter-chip{
+  padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;
+  background:var(--surface2);color:var(--fg2);border:1px solid var(--border);
+  transition:all .12s;white-space:nowrap;
+}
+.filter-chip:hover{border-color:var(--muted)}
+.filter-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.filter-chip .chip-count{font-family:var(--font-mono);font-size:11px;opacity:.5;margin-left:4px}
+.filter-reset{
+  margin-left:auto;font-size:12px;color:var(--muted);cursor:pointer;flex-shrink:0;
+  padding:6px 10px;border-radius:6px;transition:color .12s;
+}
+.filter-reset:hover{color:var(--fg)}
+@media(max-width:640px){
+  .filterbar{gap:8px;padding:0 var(--gap)}
+  .filter-select{font-size:12px;padding:5px 10px}
+}
+
+.main{
+  margin-top:calc(var(--header-h) + var(--filter-h));
+  padding:var(--gap-lg);
+  min-height:100vh;
+}
+
+.loading{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:80px 20px;color:var(--muted);gap:16px;
+}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error{text-align:center;padding:80px 20px;color:var(--muted)}
+.error strong{color:var(--red);display:block;margin-bottom:8px}
+
+.empty{text-align:center;padding:80px 20px;color:var(--muted)}
+.empty .icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty h3{font-family:var(--font-display);color:var(--fg2);margin:0 0 6px}
+
+.grid-container{position:relative;width:100%}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:var(--gap);
+}
+@media(max-width:800px){.grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}}
+@media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr);gap:8px}}
+
+.ch-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s;
+  position:relative;display:flex;flex-direction:column;
+}
+.ch-card:hover{
+  transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.4);
+  border-color:var(--accent-soft);
+}
+.ch-card:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+.ch-card-logo{
+  aspect-ratio:16/9;width:100%;
+  background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;overflow:hidden;
+}
+.ch-card-logo img{
+  max-width:80%;max-height:80%;object-fit:contain;
+  transition:transform .3s ease;
+}
+.ch-card:hover .ch-card-logo img{transform:scale(1.05)}
+.ch-card-logo .no-logo{font-size:28px;opacity:.15;font-family:var(--font-display)}
+.ch-card-body{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column;min-width:0}
+.ch-card-name{
+  font-size:14px;font-weight:600;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ch-card-meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--muted)}
+.ch-card-flag{font-size:14px;line-height:1}
+.ch-card-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.ch-badge{
+  font-size:10px;padding:2px 6px;border-radius:4px;
+  background:var(--surface2);color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+.ch-badge.category{background:color-mix(in oklch, var(--accent) 12%, transparent);color:var(--accent)}
+.ch-badge.nsfw{background:color-mix(in oklch, var(--red) 12%, transparent);color:var(--red)}
+.ch-badge.blocked{background:color-mix(in oklch, var(--yellow) 12%, transparent);color:var(--yellow)}
+.ch-card-feed-count{
+  font-family:var(--font-mono);font-size:10px;color:var(--muted);
+  margin-top:4px;opacity:.6;
+}
+@media(max-width:480px){
+  .ch-card-logo{padding:10px}
+  .ch-card-name{font-size:12px}
+  .ch-card-body{padding:8px}
+}
+
+.detail-overlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  animation:fadeIn .2s ease;
+}
+.detail-overlay.open{display:block}
+.detail-panel{
+  position:fixed;inset:auto 0 0 0;z-index:201;
+  background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  max-height:85vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 -10px 60px rgba(0,0,0,.5);
+}
+.detail-panel.open{transform:translateY(0)}
+.detail-handle{display:flex;justify-content:center;padding:8px 0 0}
+.detail-handle::after{content:'';width:36px;height:4px;border-radius:2px;background:var(--border)}
+.detail-close{
+  position:absolute;top:12px;right:12px;
+  width:32px;height:32px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--surface2);color:var(--muted);
+  font-size:18px;cursor:pointer;transition:all .12s;
+}
+.detail-close:hover{background:var(--border);color:var(--fg)}
+.detail-content{padding:0 var(--gap-lg) var(--gap-lg)}
+.detail-header{display:flex;gap:var(--gap-lg);margin-bottom:var(--gap-lg)}
+.detail-logo{
+  width:160px;height:90px;flex-shrink:0;
+  background:var(--surface2);border-radius:var(--radius);
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);overflow:hidden;
+}
+.detail-logo img{max-width:80%;max-height:80%;object-fit:contain}
+.detail-logo .no-logo{font-size:32px;opacity:.15;font-family:var(--font-display)}
+.detail-info{min-width:0;flex:1}
+.detail-name{font-family:var(--font-display);font-size:24px;margin:0 0 4px;line-height:1.2}
+.detail-id{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-bottom:8px}
+.detail-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.detail-site{margin-top:8px}
+.detail-site a{font-size:13px;color:var(--accent);display:inline-flex;align-items:center;gap:4px}
+.detail-site a:hover{text-decoration:underline}
+.detail-section{margin-top:var(--gap-lg)}
+.detail-section h4{
+  font-size:13px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em;margin:0 0 var(--gap);
+  font-family:var(--font-mono);
+}
+.detail-feeds{display:flex;flex-direction:column;gap:6px}
+.detail-feed{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 14px;background:var(--surface2);border-radius:var(--radius);
+  border:1px solid var(--border);
+}
+.detail-feed-info{min-width:0}
+.detail-feed-name{font-size:14px;font-weight:500}
+.detail-feed-meta{font-size:12px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.detail-feed-play{
+  padding:6px 14px;border-radius:6px;background:var(--accent);color:#fff;
+  font-size:13px;font-weight:500;white-space:nowrap;
+  transition:opacity .12s;flex-shrink:0;
+}
+.detail-feed-play:hover{opacity:.85}
+.detail-table{width:100%;font-size:13px;border-collapse:collapse}
+.detail-table td{padding:4px 8px;vertical-align:top}
+.detail-table td:first-child{color:var(--muted);width:100px;white-space:nowrap}
+@media(max-width:640px){
+  .detail-panel{max-height:92vh}
+  .detail-header{flex-direction:column;gap:var(--gap)}
+  .detail-logo{width:100%;height:auto;aspect-ratio:16/9}
+  .detail-name{font-size:20px}
+  .detail-content{padding:0 var(--gap) var(--gap)}
+  .detail-feed{flex-direction:column;align-items:stretch;gap:8px}
+  .detail-feed-play{text-align:center}
+}
+
+.player-overlay{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:#000;
+}
+.player-overlay.open{display:block}
+.player-close{
+  position:fixed;top:16px;right:16px;z-index:301;
+  width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);
+  color:#fff;display:grid;place-items:center;font-size:20px;cursor:pointer;
+  transition:background .12s;
+}
+.player-close:hover{background:rgba(255,255,255,.15)}
+.player-frame{width:100vw;height:100vh;border:0}
+.player-info{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:301;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  padding:8px 16px;border-radius:8px;color:#fff;font-size:13px;text-align:center;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+@media(min-width:1400px){.grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
+@media(min-width:2000px){.grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}}
+
+.skeleton{background:linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+@media(prefers-reduced-motion:reduce){
+  *,.ch-card,.detail-panel,.spinner,.skeleton{transition-duration:0s!important;animation-duration:.01ms!important}
+}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="header" role="banner">
+  <div class="header-brand">IPTV <span>LUX</span></div>
+  <div class="header-search" role="search">
+    <span class="icon" aria-hidden="true">⌕</span>
+    <input type="search" id="searchInput" placeholder="Search channels, countries, categories…" autocomplete="off" aria-label="Search channels">
+    <button class="clear" id="searchClear" aria-label="Clear search">✕</button>
+  </div>
+  <div class="header-actions">
+    <span class="header-count" id="channelCount"></span>
+  </div>
+</header>
+
+<div class="filterbar" id="filterbar" role="toolbar" aria-label="Filters">
+  <div class="filter-select" data-filter="country" tabindex="0" role="button" aria-haspopup="true">Country <span class="arrow">▼</span></div>
+  <div class="filter-select" data-filter="category" tabindex="0" role="button" aria-haspopup="true">Category <span class="arrow">▼</span></div>
+  <div class="filter-select" data-filter="language" tabindex="0" role="button" aria-haspopup="true">Language <span class="arrow">▼</span></div>
+  <div class="filter-select" data-filter="nsfw" tabindex="0" role="button" aria-haspopup="true">Content <span class="arrow">▼</span></div>
+  <button class="filter-reset" id="filterReset">Reset filters</button>
+</div>
+
+<div class="filter-options" id="filterOptions"></div>
+
+<main class="main" id="main" role="main">
+  <div id="app"></div>
+</main>
+
+<div class="detail-overlay" id="detailOverlay"></div>
+<aside class="detail-panel" id="detailPanel" role="dialog" aria-label="Channel details">
+  <div class="detail-handle"></div>
+  <button class="detail-close" id="detailClose" aria-label="Close details">✕</button>
+  <div class="detail-content" id="detailContent"></div>
+</aside>
+
+<div class="player-overlay" id="playerOverlay">
+  <button class="player-close" id="playerClose" aria-label="Close player">✕</button>
+  <iframe class="player-frame" id="playerFrame" allow="autoplay;encrypted-media" sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"></iframe>
+  <div class="player-info" id="playerInfo"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ─── State ──────────────────────────────────────────────────────────────
+  const state = {
+    channels: [],
+    index: {},
+    meta: null,
+    filtered: [],
+    visibleCount: 0,
+    filters: { country: null, category: null, language: null, nsfw: 0 },
+    search: '',
+    loading: true,
+    error: null,
+    pageSize: 40,
+    loadingMore: false,
+  };
+
+  // ─── DOM refs ───────────────────────────────────────────────────────────
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+  const app = $('#app');
+  const searchInput = $('#searchInput');
+  const searchClear = $('#searchClear');
+  const channelCount = $('#channelCount');
+  const filterOptions = $('#filterOptions');
+  const detailOverlay = $('#detailOverlay');
+  const detailPanel = $('#detailPanel');
+  const detailContent = $('#detailContent');
+  const detailClose = $('#detailClose');
+  const playerOverlay = $('#playerOverlay');
+  const playerFrame = $('#playerFrame');
+  const playerInfo = $('#playerInfo');
+  const playerClose = $('#playerClose');
+
+  // ─── Utilities ──────────────────────────────────────────────────────────
+  function escapeHtml(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function updateCount() {
+    var total = state.channels.length;
+    var shown = state.filtered.length;
+    channelCount.textContent = shown.toLocaleString() + ' of ' + total.toLocaleString() + ' channels';
+  }
+
+  // ─── Prefix index for fast search ──────────────────────────────────────
+  var prefixIndex = {};
+
+  function buildPrefixIndex(index) {
+    // Group index terms by their first 2 characters for fast lookup
+    for (var term in index) {
+      if (!index.hasOwnProperty(term)) continue;
+      if (term.length < 2) continue;
+      var key = term.substring(0, 2);
+      if (!prefixIndex[key]) prefixIndex[key] = [];
+      prefixIndex[key].push(term);
+    }
+  }
+
+  function getIndexTermsByPrefix(prefix) {
+    if (!prefix || prefix.length < 2) return [];
+    var key = prefix.substring(0, 2);
+    var candidates = prefixIndex[key] || [];
+    // Filter to only those that actually start with the full prefix
+    var result = [];
+    for (var i = 0; i < candidates.length; i++) {
+      if (candidates[i].indexOf(prefix) === 0) {
+        result.push(candidates[i]);
+      }
+    }
+    return result;
+  }
+
+  // ─── Data Loading ───────────────────────────────────────────────────────
+  function loadJSON(url) {
+    return fetch(url).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' loading ' + url);
+      return r.json();
+    });
+  }
+
+  function loadData() {
+    state.loading = true;
+    renderApp();
+
+    Promise.all([
+      loadJSON('generated/meta.json'),
+      loadJSON('generated/index.json'),
+      loadJSON('generated/channels.json'),
+    ]).then(function(results) {
+      state.meta = results[0];
+      state.index = results[1];
+      buildPrefixIndex(results[1]);
+      state.channels = results[2];
+      state.filtered = results[2].map(function(_, i) { return i; });
+      state.loading = false;
+      renderApp(); // creates grid container
+      applyFiltersAndSearch(); // renders grid + updates count
+      renderFilterBar();
+    }).catch(function(err) {
+      state.loading = false;
+      state.error = err.message;
+      renderApp();
+    });
+  }
+
+  // ─── Search ─────────────────────────────────────────────────────────────
+  function searchChannels(query) {
+    if (!query || query.length < 2) return null;
+    var q = query.toLowerCase().trim();
+    var matches = {};
+    var count = 0;
+    var terms = Object.keys(state.index);
+
+    // Find terms that start with the query using prefix index
+    var matchingTerms = getIndexTermsByPrefix(q);
+    for (var t = 0; t < matchingTerms.length; t++) {
+      var term = matchingTerms[t];
+      var ids = state.index[term];
+      for (var k = 0; k < ids.length; k++) {
+        if (!matches[ids[k]]) {
+          matches[ids[k]] = true;
+          count++;
+        }
+      }
+    }
+
+    if (count > 0) {
+      var result = [];
+      for (var id in matches) result.push(parseInt(id));
+      return result;
+    }
+
+    // Fuzzy fallback: find terms with longest common prefix
+    if (q.length >= 3) {
+      var scored = [];
+      var firstChar = q.substring(0, 2);
+      var candidates2 = prefixIndex[firstChar] || [];
+      for (var f = 0; f < candidates2.length; f++) {
+        var tf = candidates2[f];
+      }
+      scored.sort(function(a, b) { return b.score - a.score; });
+      scored = scored.slice(0, 8);
+      var fuzzy = {};
+      var fcount = 0;
+      for (var s = 0; s < scored.length; s++) {
+        var fids = state.index[scored[s].term];
+        for (var k2 = 0; k2 < fids.length; k2++) {
+          if (!fuzzy[fids[k2]]) {
+            fuzzy[fids[k2]] = true;
+            fcount++;
+          }
+        }
+      }
+      if (fcount > 0) {
+        var fresult = [];
+        for (var fid in fuzzy) fresult.push(parseInt(fid));
+        return fresult;
+      }
+    }
+
+    return [];
+  }
+
+  // ─── Filtering ─────────────────────────────────────────────────────────
+  function applyFiltersAndSearch() {
+    var filters = state.filters;
+    var search = state.search;
+    var channels = state.channels;
+    var ids = null;
+
+    if (search && search.length >= 2) {
+      ids = searchChannels(search);
+      if (ids === null || ids.length === 0) {
+        state.filtered = [];
+        updateCount();
+        renderGrid();
+        return;
+      }
+      var idSet = {};
+      for (var ii = 0; ii < ids.length; ii++) idSet[ids[ii]] = true;
+      ids = idSet;
+    }
+
+    var result = [];
+    for (var i = 0; i < channels.length; i++) {
+      if (ids && !ids[i]) continue;
+      var ch = channels[i];
+      if (filters.country && ch.cy !== filters.country) continue;
+      if (filters.category && (!ch.ct || ch.ct.indexOf(filters.category) === -1)) continue;
+      if (filters.language) {
+        var hasLang = false;
+        for (var fi = 0; fi < ch.f.length; fi++) {
+          if (ch.f[fi].lg && ch.f[fi].lg.indexOf(filters.language) !== -1) { hasLang = true; break; }
+        }
+        if (!hasLang) continue;
+      }
+      if (filters.nsfw === 1 && !ch.ns) continue;
+      if (filters.nsfw === 2 && ch.ns) continue;
+      result.push(i);
+    }
+
+    state.filtered = result;
+    state.visibleCount = 0;
+    updateCount();
+    renderGrid();
+  }
+
+  // ─── Rendering ─────────────────────────────────────────────────────────
+  function renderApp() {
+    if (state.loading) {
+      app.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading ' + state.channels.length + ' channels…</span></div>';
+      return;
+    }
+    if (state.error) {
+      app.innerHTML = '<div class="error"><strong>Failed to load data</strong><span>' + escapeHtml(state.error) + '</span></div>';
+      return;
+    }
+    app.innerHTML = '<div class="grid-container"><div class="grid" id="channelGrid"></div><div id="gridSentinel" style="height:1px"></div></div>';
+    renderGrid();
+    setupScrollObserver();
+  }
+
+  function renderGrid() {
+    var grid = $('#channelGrid');
+    if (!grid) return;
+    var filtered = state.filtered;
+    var channels = state.channels;
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">◬</div><h3>No channels found</h3><p>Try adjusting your search or filters.</p></div>';
+      return;
+    }
+
+    var end = Math.min(state.pageSize, filtered.length);
+    state.visibleCount = end;
+
+    var html = '';
+    for (var i = 0; i < end; i++) {
+      html += renderCard(channels[filtered[i]], filtered[i]);
+    }
+    grid.innerHTML = html;
+
+    var sentinel = $('#gridSentinel');
+    if (sentinel) {
+      if (end >= filtered.length) {
+        sentinel.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Showing all ' + filtered.length.toLocaleString() + ' channels</div>';
+      } else {
+        sentinel.innerHTML = '';
+      }
+    }
+  }
+
+  function renderCard(ch, idx) {
+    var logoHtml;
+    if (ch.l && ch.l.url) {
+      logoHtml = '<img src="' + escapeHtml(ch.l.url) + '" alt="' + escapeHtml(ch.n) + ' logo" loading="lazy" onerror="this.style.display=\'none\'">';
+    } else {
+      logoHtml = '<span class="no-logo">◉</span>';
+    }
+
+    var flag = ch.cf || '';
+    var country = ch.cn || ch.cy || '';
+    var cats = ch.ctn ? ch.ctn.slice(0, 3) : [];
+    var feedCount = ch.f ? ch.f.length : 0;
+    var badgesHtml = '';
+    for (var c = 0; c < cats.length; c++) {
+      badgesHtml += '<span class="ch-badge category">' + escapeHtml(cats[c]) + '</span>';
+    }
+    var nsfwBadge = ch.ns ? '<span class="ch-badge nsfw">NSFW</span>' : '';
+    var blockedBadge = ch.bl ? '<span class="ch-badge blocked">Restricted</span>' : '';
+    var feedInfo = feedCount > 0 ? '<span class="ch-card-feed-count">' + feedCount + ' feed' + (feedCount > 1 ? 's' : '') + '</span>' : '';
+
+    return '<div class="ch-card" role="button" tabindex="0" data-idx="' + idx + '" aria-label="' + escapeHtml(ch.n) + '">' +
+      '<div class="ch-card-logo">' + logoHtml + '</div>' +
+      '<div class="ch-card-body">' +
+        '<div class="ch-card-name" title="' + escapeHtml(ch.n) + '">' + escapeHtml(ch.n) + '</div>' +
+        '<div class="ch-card-meta">' +
+          (flag ? '<span class="ch-card-flag">' + flag + '</span>' : '') +
+          '<span>' + escapeHtml(country) + '</span>' +
+        '</div>' +
+        badgesHtml + nsfwBadge + blockedBadge + feedInfo +
+      '</div>' +
+    '</div>';
+  }
+
+  // ─── Infinite Scroll ────────────────────────────────────────────────────
+  var scrollObserver = null;
+
+  function setupScrollObserver() {
+    if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
+    var sentinel = $('#gridSentinel');
+    if (!sentinel) return;
+    scrollObserver = new IntersectionObserver(function(entries) {
+      if (entries[0].isIntersecting && !state.loadingMore) {
+        loadMore();
+      }
+    }, { rootMargin: '400px' });
+    scrollObserver.observe(sentinel);
+  }
+
+  function loadMore() {
+    if (state.loadingMore) return;
+    var filtered = state.filtered;
+    var current = state.visibleCount;
+    if (current >= filtered.length) return;
+    state.loadingMore = true;
+    var next = Math.min(current + state.pageSize, filtered.length);
+    var grid = $('#channelGrid');
+    if (!grid) { state.loadingMore = false; return; }
+
+    var channels = state.channels;
+    var html = '';
+    for (var i = current; i < next; i++) {
+      html += renderCard(channels[filtered[i]], filtered[i]);
+    }
+    grid.insertAdjacentHTML('beforeend', html);
+    state.visibleCount = next;
+    state.loadingMore = false;
+    updateCount();
+
+    if (next >= filtered.length) {
+      var sentinel = $('#gridSentinel');
+      if (sentinel) {
+        sentinel.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Showing all ' + filtered.length.toLocaleString() + ' channels</div>';
+      }
+    }
+  }
+
+  // ─── Filter Bar ─────────────────────────────────────────────────────────
+  var activeFilter = null;
+
+  function renderFilterBar() {
+    if (!state.meta) return;
+    var selects = $$('.filter-select');
+    for (var i = 0; i < selects.length; i++) {
+      selects[i].addEventListener('click', function(e) {
+        toggleFilterPanel(this.dataset.filter);
+      });
+      selects[i].addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleFilterPanel(this.dataset.filter);
+        }
+      });
+    }
+  }
+
+  function toggleFilterPanel(type) {
+    if (activeFilter === type) {
+      closeFilterPanel();
+      return;
+    }
+    activeFilter = type;
+    renderFilterOptions(type);
+    filterOptions.classList.add('open');
+    var selects = $$('.filter-select');
+    for (var i = 0; i < selects.length; i++) {
+      selects[i].classList.toggle('active', selects[i].dataset.filter === type);
+    }
+  }
+
+  function closeFilterPanel() {
+    activeFilter = null;
+    filterOptions.classList.remove('open');
+    var selects = $$('.filter-select');
+    for (var i = 0; i < selects.length; i++) {
+      selects[i].classList.remove('active');
+    }
+  }
+
+  function renderFilterOptions(type) {
+    var meta = state.meta;
+    var filters = state.filters;
+    var items = [];
+    var currentVal = filters[type];
+
+    if (type === 'country') {
+      for (var ci = 0; ci < meta.countries.length; ci++) {
+        var c = meta.countries[ci];
+        items.push({ id: c.code, label: (c.flag || '') + ' ' + c.name, count: c.count, active: currentVal === c.code });
+      }
+    } else if (type === 'category') {
+      for (var ci2 = 0; ci2 < meta.categories.length; ci2++) {
+        var cat = meta.categories[ci2];
+        items.push({ id: cat.id, label: cat.name, count: cat.count, active: currentVal === cat.id });
+      }
+    } else if (type === 'language') {
+      for (var li = 0; li < meta.languages.length; li++) {
+        var l = meta.languages[li];
+        items.push({ id: l.code, label: l.name, count: l.count, active: currentVal === l.code });
+      }
+    } else if (type === 'nsfw') {
+      items = [
+        { id: 0, label: 'All content', count: null, active: currentVal === 0 },
+        { id: 1, label: 'NSFW only', count: null, active: currentVal === 1 },
+        { id: 2, label: 'Safe only', count: null, active: currentVal === 2 },
+      ];
+    }
+
+    var html = '<div class="filter-options-inner">';
+    html += '<button class="filter-chip' + (!currentVal ? ' active' : '') + '" data-type="' + type + '" data-value="">Any ' + type + '</button>';
+    for (var ii = 0; ii < items.length; ii++) {
+      var item = items[ii];
+      html += '<button class="filter-chip' + (item.active ? ' active' : '') + '" data-type="' + type + '" data-value="' + item.id + '">' + escapeHtml(item.label) + (item.count != null ? ' <span class="chip-count">' + item.count.toLocaleString() + '</span>' : '') + '</button>';
+    }
+    html += '</div>';
+    filterOptions.innerHTML = html;
+
+    var chips = filterOptions.querySelectorAll('.filter-chip');
+    for (var ci3 = 0; ci3 < chips.length; ci3++) {
+      chips[ci3].addEventListener('click', function() {
+        var typ = this.dataset.type;
+        var val = this.dataset.value;
+        if (typ === 'nsfw') {
+          state.filters[typ] = val === '' ? 0 : parseInt(val);
+        } else {
+          state.filters[typ] = val === '' ? null : val;
+        }
+        closeFilterPanel();
+        applyFiltersAndSearch();
+      });
+    }
+  }
+
+  // ─── Detail Panel ───────────────────────────────────────────────────────
+  function openDetail(idx) {
+    var ch = state.channels[idx];
+    if (!ch) return;
+    renderDetail(ch);
+    detailOverlay.classList.add('open');
+    detailPanel.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDetail() {
+    detailOverlay.classList.remove('open');
+    detailPanel.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function renderDetail(ch) {
+    var logoHtml;
+    if (ch.l && ch.l.url) {
+      logoHtml = '<img src="' + escapeHtml(ch.l.url) + '" alt="' + escapeHtml(ch.n) + '" onerror="this.style.display=\'none\'">';
+    } else {
+      logoHtml = '<span class="no-logo">◉</span>';
+    }
+
+    var cats = '';
+    if (ch.ctn) {
+      for (var ci = 0; ci < ch.ctn.length; ci++) {
+        cats += '<span class="ch-badge category">' + escapeHtml(ch.ctn[ci]) + '</span>';
+      }
+    }
+
+    var feedsHtml = '';
+    if (ch.f) {
+      for (var fi = 0; fi < ch.f.length; fi++) {
+        var f = ch.f[fi];
+        var langs = f.lgn ? f.lgn.join(', ') : '';
+        var area = f.ba ? f.ba.join(', ') : '';
+        var fmt = f.fmt || '';
+        feedsHtml += '<div class="detail-feed">' +
+          '<div class="detail-feed-info">' +
+            '<div class="detail-feed-name">' + escapeHtml(f.n) + '</div>' +
+            '<div class="detail-feed-meta">' +
+              (langs ? '<span>' + escapeHtml(langs) + '</span>' : '') +
+              (area ? '<span>' + escapeHtml(area) + '</span>' : '') +
+              (fmt ? '<span>' + fmt + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<button class="detail-feed-play" data-channel="' + escapeHtml(ch.i) + '" data-feed="' + escapeHtml(f.i) + '" data-feedname="' + escapeHtml(f.n) + '">Play</button>' +
+        '</div>';
+      }
+    }
+    if (!feedsHtml) {
+      feedsHtml = '<div style="color:var(--muted);font-size:14px">No streams available for this channel.</div>';
+    }
+
+    var infoRows = '';
+    if (ch.w) infoRows += '<tr><td>Network</td><td>' + escapeHtml(ch.w) + '</td></tr>';
+    if (ch.o) infoRows += '<tr><td>Owners</td><td>' + escapeHtml(ch.o) + '</td></tr>';
+    if (ch.ns) infoRows += '<tr><td>NSFW</td><td>Yes</td></tr>';
+    if (ch.bl) infoRows += '<tr><td>Restricted</td><td>' + escapeHtml(ch.bl) + '</td></tr>';
+    if (ch.la) infoRows += '<tr><td>Launched</td><td>' + escapeHtml(ch.la) + '</td></tr>';
+    if (ch.cl) infoRows += '<tr><td>Closed</td><td>' + escapeHtml(ch.cl) + '</td></tr>';
+    if (ch.u) infoRows += '<tr><td>Website</td><td><a href="' + escapeHtml(ch.u) + '" target="_blank" rel="noopener">' + escapeHtml(ch.u) + '</a></td></tr>';
+
+    detailContent.innerHTML =
+      '<div class="detail-header">' +
+        '<div class="detail-logo">' + logoHtml + '</div>' +
+        '<div class="detail-info">' +
+          '<h2 class="detail-name">' + escapeHtml(ch.n) + '</h2>' +
+          '<div class="detail-id">' + escapeHtml(ch.i) + '</div>' +
+          '<div class="detail-tags">' + cats + '</div>' +
+          '<div style="font-size:14px;color:var(--fg2)">' + (ch.cf ? ch.cf + ' ' : '') + escapeHtml(ch.cn || ch.cy || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="detail-section">' +
+        '<h4>Streams (' + (ch.f ? ch.f.length : 0) + ')</h4>' +
+        '<div class="detail-feeds">' + feedsHtml + '</div>' +
+      '</div>' +
+      '<div class="detail-section">' +
+        '<h4>Information</h4>' +
+        '<table class="detail-table">' + infoRows + '</table>' +
+      '</div>';
+
+    // Wire up play buttons
+    var playBtns = detailContent.querySelectorAll('.detail-feed-play');
+    for (var pbi = 0; pbi < playBtns.length; pbi++) {
+      playBtns[pbi].addEventListener('click', function(e) {
+        e.stopPropagation();
+        openPlayer(this.dataset.channel, this.dataset.feed, this.dataset.feedname);
+      });
+    }
+  }
+
+  // ─── Player ─────────────────────────────────────────────────────────────
+  function openPlayer(channelId, feedId, feedName) {
+    var src = 'https://iptv-org.github.io/iptv/channels/' + encodeURIComponent(channelId) + '.m3u8';
+    var playerUrl = 'https://player.ls.graphics/?src=' + encodeURIComponent(src);
+    playerFrame.src = playerUrl;
+    playerInfo.textContent = channelId + ' · ' + (feedName || feedId);
+    playerOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePlayer() {
+    playerFrame.src = '';
+    playerOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ─── Event Delegation ───────────────────────────────────────────────────
+  app.addEventListener('click', function(e) {
+    var card = e.target.closest('.ch-card');
+    if (card) {
+      var idx = parseInt(card.dataset.idx);
+      if (!isNaN(idx)) openDetail(idx);
+    }
+  });
+
+  app.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var card = e.target.closest('.ch-card');
+      if (card) {
+        e.preventDefault();
+        var idx = parseInt(card.dataset.idx);
+        if (!isNaN(idx)) openDetail(idx);
+      }
+    }
+  });
+
+  // ─── Search Events ─────────────────────────────────────────────────────
+  var searchTimer = null;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+      state.search = searchInput.value.trim();
+      searchClear.classList.toggle('show', state.search.length > 0);
+      applyFiltersAndSearch();
+    }, 150);
+  });
+
+  searchClear.addEventListener('click', function() {
+    searchInput.value = '';
+    state.search = '';
+    searchClear.classList.remove('show');
+    applyFiltersAndSearch();
+    searchInput.focus();
+  });
+
+  // ─── Filter Reset ───────────────────────────────────────────────────────
+  $('#filterReset').addEventListener('click', function() {
+    state.filters = { country: null, category: null, language: null, nsfw: 0 };
+    closeFilterPanel();
+    applyFiltersAndSearch();
+  });
+
+  // ─── Detail Close ───────────────────────────────────────────────────────
+  detailClose.addEventListener('click', closeDetail);
+  detailOverlay.addEventListener('click', closeDetail);
+
+  // ─── Player Close ───────────────────────────────────────────────────────
+  playerClose.addEventListener('click', closePlayer);
+  playerOverlay.addEventListener('click', function(e) {
+    if (e.target === playerOverlay) closePlayer();
+  });
+
+  // ─── Keyboard ──────────────────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (playerOverlay.classList.contains('open')) closePlayer();
+      else if (detailPanel.classList.contains('open')) closeDetail();
+      else if (filterOptions.classList.contains('open')) closeFilterPanel();
+    }
+  });
+
+  // ─── Click outside filter ──────────────────────────────────────────────
+  document.addEventListener('click', function(e) {
+    if (filterOptions.classList.contains('open')) {
+      if (!e.target.closest('.filterbar') && !e.target.closest('.filter-options')) {
+        closeFilterPanel();
+      }
+    }
+  });
+
+  // ─── Init ───────────────────────────────────────────────────────────────
+  loadData();
+})();
+</script>
+
+</body>
+</html>
