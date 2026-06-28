@@ -7,23 +7,29 @@
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
-  let countryName = $state('');
-  let countryFlag = $state('');
 
-  $effect(() => {
+  const countryName = $derived.by(() => {
     const code = $page.params.code;
     if ($meta) {
       const c = $meta.countries.find(x => x.code === code);
-      countryName = c?.name || code;
-      countryFlag = c?.flag || '';
+      return c?.name || code;
     }
+    return '';
   });
 
-  onMount(async () => {
+  const countryFlag = $derived.by(() => {
+    const code = $page.params.code;
+    if ($meta) {
+      const c = $meta.countries.find(x => x.code === code);
+      return c?.flag || '';
+    }
+    return '';
+  });
+
+  onMount(() => {
     const code = $page.params.code;
     activeFilters.set({ country: code, category: null, language: null, nsfw: 0 });
-    await loadChannels();
-    loading = false;
+    loadChannels().then(() => { loading = false; });
   });
 </script>
 

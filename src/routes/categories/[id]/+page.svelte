@@ -7,21 +7,20 @@
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
-  let catName = $state('');
 
-  $effect(() => {
+  const catName = $derived.by(() => {
     const id = $page.params.id;
     if ($meta) {
       const c = $meta.categories.find(x => x.id === id);
-      catName = c?.name || id;
+      return c?.name || id;
     }
+    return '';
   });
 
-  onMount(async () => {
+  onMount(() => {
     const id = $page.params.id;
     activeFilters.set({ country: null, category: id, language: null, nsfw: 0 });
-    await loadChannels();
-    loading = false;
+    loadChannels().then(() => { loading = false; });
   });
 </script>
 

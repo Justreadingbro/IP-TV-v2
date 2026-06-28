@@ -445,9 +445,9 @@ input{font:inherit;border:0;background:0;color:inherit;outline:0}
     renderApp();
 
     Promise.all([
-      loadJSON('generated/meta.json'),
-      loadJSON('generated/index.json'),
-      loadJSON('generated/channels.json'),
+      loadJSON('/generated/meta.json'),
+      loadJSON('/generated/index.json'),
+      loadJSON('/generated/channels.json'),
     ]).then(function(results) {
       state.meta = results[0];
       state.index = results[1];

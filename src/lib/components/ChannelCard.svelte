@@ -1,16 +1,14 @@
 <script>
   import { goto } from '$app/navigation';
-  import { toggleFavorite, isFavorite } from '$lib/stores/favorites.js';
+  import { favoriteIds, toggleFavorite } from '$lib/stores/favorites.js';
 
-  let { channel, index: idx, detail = false } = $props();
+  let { channel, index: idx } = $props();
 
-  let fav = $state(false);
-
-  $effect(() => { fav = isFavorite(channel.i); });
+  let fav = $derived($favoriteIds.indexOf(channel.i) !== -1);
 
   function toggleFav(e) {
     e.stopPropagation();
-    fav = toggleFavorite(channel.i);
+    toggleFavorite(channel.i);
   }
 
   function openDetail() {

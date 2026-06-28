@@ -1,27 +1,24 @@
 <script>
   import ChannelCard from './ChannelCard.svelte';
 
-  let { indices, channels, pageSize = 40 } = $props();
+  let { indices, channels: chs, pageSize = 40 } = $props();
 
-  let visible = $state(0);
-
-  $effect(() => {
-    if (visible === 0 || visible < pageSize) visible = pageSize;
-  });
+  let sentinelEl = $state(null);
+  let visible = $state(40);
 
   function loadMore() {
     visible = Math.min(visible + pageSize, indices.length);
   }
 
   $effect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const sentinel = document.getElementById('grid-sentinel');
-    if (!sentinel) return;
-    const obs = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) loadMore();
-    }, { rootMargin: '400px' });
-    obs.observe(sentinel);
-    return () => obs.disconnect();
+    visible = Math.min(pageSize, indices.length);
+    if (sentinelEl && indices.length > pageSize) {
+      const obs = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      }, { rootMargin: '400px' });
+      obs.observe(sentinelEl);
+      return () => obs.disconnect();
+    }
   });
 </script>
 
@@ -36,12 +33,12 @@
     <div class="grid" role="list" aria-label="Channel grid">
       {#each indices.slice(0, visible) as idx (idx)}
         <div role="listitem">
-          <ChannelCard channel={channels[idx]} {idx} />
+          <ChannelCard channel={chs[idx]} {idx} />
         </div>
       {/each}
     </div>
     {#if visible < indices.length}
-      <div id="grid-sentinel" class="sentinel"></div>
+      <div bind:this={sentinelEl} class="sentinel"></div>
     {:else}
       <div class="sentinel done">Showing all {indices.length.toLocaleString()} channels</div>
     {/if}

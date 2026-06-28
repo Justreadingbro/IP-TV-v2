@@ -59,7 +59,7 @@
   <LoadingSpinner message="Loading channel…" />
 {:else if ch}
   <div class="detail-page">
-    <button class="back-link" onclick={() => history.back()}>← Back</button>
+    <button class="back-link" onclick={() => goto('/browse')}>← Back</button>
 
     <div class="detail-header">
       <div class="detail-logo">

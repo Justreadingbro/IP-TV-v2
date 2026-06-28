@@ -1,18 +1,22 @@
 <script>
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { meta } from '$lib/stores/channels.js';
   import { searchQuery } from '$lib/stores/filters.js';
 
   let q = $state('');
-  let timer;
+  let currentTimer;
 
   function onSearchInput(e) {
     q = e.target.value;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
+    clearTimeout(currentTimer);
+    currentTimer = setTimeout(() => {
       searchQuery.set(q);
       if (q.length >= 2 || q.length === 0) {
-        gotoSearch();
+        const path = $page.url.pathname;
+        if (path !== '/search') {
+          goto(`/search?q=${encodeURIComponent(q)}`);
+        }
       }
     }, 200);
   }
@@ -20,13 +24,6 @@
   function clearSearch() {
     q = '';
     searchQuery.set('');
-  }
-
-  function gotoSearch() {
-    const path = $page.url.pathname;
-    if (path !== '/search') {
-      window.location.href = '/search';
-    }
   }
 
   function isActive(path) {

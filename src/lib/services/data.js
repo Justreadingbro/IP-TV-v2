@@ -1,4 +1,4 @@
-const DATA_BASE = 'generated';
+const DATA_BASE = '/generated';
 
 export async function fetchMeta() {
   const res = await fetch(`${DATA_BASE}/meta.json`);

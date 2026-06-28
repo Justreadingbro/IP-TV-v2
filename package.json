@@ -6,13 +6,14 @@
   "scripts": {
     "prebuild": "node scripts/build-pipeline.mjs",
     "dev": "vite dev",
-    "build": "npm run prebuild && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "data": "node scripts/build-pipeline.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.68.0",
+    "hls.js": "^1.6.16",
     "svelte": "^5.56.4",
     "vite": "^8.1.0"
   }

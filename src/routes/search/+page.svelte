@@ -10,10 +10,11 @@
   let loading = $state(true);
   let searchLoaded = $state(false);
 
-  onMount(async () => {
-    await Promise.all([loadChannels(), loadIndex()]);
-    searchLoaded = true;
-    loading = false;
+  onMount(() => {
+    Promise.all([loadChannels(), loadIndex()]).then(() => {
+      searchLoaded = true;
+      loading = false;
+    });
   });
 
   function doSearch(e) {
@@ -23,7 +24,15 @@
     const q = data.get('q')?.trim() || '';
     searchQuery.set(q);
     if (q.length >= 2 || q.length === 0) {
-      history.replaceState(null, '', q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+      goto(q ? `/search?q=${encodeURIComponent(q)}` : '/search', { replaceState: true });
+    }
+  }
+
+  function onInput(e) {
+    const v = e.target.value;
+    searchQuery.set(v);
+    if (v.length >= 2 || v.length === 0) {
+      goto(v ? `/search?q=${encodeURIComponent(v)}` : '/search', { replaceState: true });
     }
   }
 </script>
@@ -46,13 +55,7 @@
           placeholder="Search channels, countries, categories…"
           autocomplete="off"
           aria-label="Search"
-          oninput={(e) => {
-            const v = e.target.value;
-            searchQuery.set(v);
-            if (v.length >= 2 || v.length === 0) {
-              history.replaceState(null, '', v ? `/search?q=${encodeURIComponent(v)}` : '/search');
-            }
-          }}
+          oninput={onInput}
         />
       </div>
     </form>
