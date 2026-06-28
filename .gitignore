@@ -1,5 +1,40 @@
+# Dependencies
 node_modules/
+.od-skills
+# Build output
 build/
 .svelte-kit/
+
+# Generated data (pipeline output — regenerated on build)
+generated/
+static/generated/
+
+# Environment
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.~lock*
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
 *.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.local
