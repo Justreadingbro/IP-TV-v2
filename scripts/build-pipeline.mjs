@@ -7,7 +7,7 @@ import { get as httpGet } from 'http';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const DATA = join(ROOT, 'data');
-const OUT = join(ROOT, 'generated');
+const OUT = join(ROOT, 'static', 'generated');
 const STREAMS_URL = 'https://iptv-org.github.io/api/streams.json';
 const M3U_PLAYLISTS = [
   'https://iptv-org.github.io/iptv/index.m3u',
@@ -278,7 +278,6 @@ function bestLogo(logos) {
 // === ENRICH CHANNELS ===
 console.log('Enriching channels...');
 const enriched = [];
-const termsIndex = {};
 
 for (let i = 0; i < channels.length; i++) {
   const ch = channels[i];
@@ -343,43 +342,9 @@ for (let i = 0; i < channels.length; i++) {
   };
 
   enriched.push(entry);
-
-  const searchable = [
-    ch.name, id, ...splitSemi(ch.alt_names), ch.network,
-    country ? country.name : '', country ? country.code : '',
-    ...catNames.map(c => c.name), ...catNames.map(c => c.id),
-  ].filter(Boolean).map(s => s.toLowerCase());
-
-  const terms = new Set();
-  for (const text of searchable) {
-    if (text.length > 1) terms.add(text);
-    for (const word of text.split(/[\s_\-./]+/)) {
-      if (word.length > 1) {
-        terms.add(word);
-        for (let k = 2; k <= Math.min(word.length, 12); k++) {
-          terms.add(word.substring(0, k));
-        }
-      }
-    }
-  }
-
-  for (const term of terms) {
-    if (!termsIndex[term]) termsIndex[term] = [];
-    termsIndex[term].push(i);
-  }
 }
 
-const channelsWithStreams = enriched.filter(e => e.f.some(f => f.u)).length;
-console.log(`${channelsWithStreams}/${enriched.length} channels have at least one stream URL`);
-
-// === BUILD SEARCH INDEX ===
-console.log('Building search index...');
-const index = {};
-for (const [term, ids] of Object.entries(termsIndex)) {
-  index[term] = [...new Set(ids)].sort((a, b) => a - b);
-}
-
-// === BUILD FILTER METADATA ===
+// === BUILD STATS ===
 const countryCounts = {};
 const categoryCounts = {};
 const languageCounts = {};
@@ -392,6 +357,8 @@ for (const ch of enriched) {
     }
   }
 }
+
+const channelsWithStreams = enriched.filter(e => e.f.some(f => f.u)).length;
 
 const meta = {
   total: enriched.length, blocked: blockedSet.size,
@@ -406,22 +373,6 @@ const meta = {
     .sort((a, b) => b.count - a.count),
 };
 
-// === WRITE OUTPUT ===
-mkdirSync(OUT, { recursive: true });
-mkdirSync(join(ROOT, 'static', 'generated'), { recursive: true });
-
-console.log('Writing generated files...');
-const channelsJson = JSON.stringify(enriched);
-const indexJson = JSON.stringify(index);
-const metaJson = JSON.stringify(meta);
-
-writeFileSync(join(OUT, 'channels.json'), channelsJson);
-writeFileSync(join(OUT, 'index.json'), indexJson);
-writeFileSync(join(OUT, 'meta.json'), metaJson);
-writeFileSync(join(ROOT, 'static', 'generated', 'channels.json'), channelsJson);
-writeFileSync(join(ROOT, 'static', 'generated', 'index.json'), indexJson);
-writeFileSync(join(ROOT, 'static', 'generated', 'meta.json'), metaJson);
-
 const stats = {
   channels: enriched.length, feeds: feeds.length, logos: logos.length,
   countries: Object.keys(countryCounts).length,
@@ -429,18 +380,133 @@ const stats = {
   languages: Object.keys(languageCounts).length,
   blocklist: blocklist.length,
   channelsWithStreams,
-  m3uPlaylists: M3U_PLAYLISTS.length,
-  m3uUniqueEntries: uniqueM3U.length,
-  m3uTvgIds: Object.keys(m3uByTvgId).length,
-  indexTerms: Object.keys(index).length,
-  indexEntries: Object.values(index).reduce((a, b) => a + b.length, 0),
 };
+
+// === BUILD LIGHTWEIGHT LISTING ===
+console.log('Building listing...');
+const listing = [];
+for (const ch of enriched) {
+  listing.push({
+    i: ch.i, n: ch.n, cy: ch.cy, cn: ch.cn, cf: ch.cf,
+    ct: ch.ct, ctn: ch.ctn, l: ch.l ? { u: ch.l.url } : null,
+  });
+}
+
+// === BUILD SEARCH INDEX ===
+console.log('Building search index...');
+const searchIndex = [];
+for (const ch of enriched) {
+  searchIndex.push({
+    i: ch.i, n: ch.n, a: ch.a && ch.a.length > 0 ? ch.a : undefined,
+    cy: ch.cy, cn: ch.cn, ct: ch.ct, ctn: ch.ctn,
+    l: ch.l ? ch.l.url : null,
+  });
+}
+
+// === BUILD FEATURED & POPULAR ===
+const withStream = enriched.filter(e => e.f.some(f => f.u));
+const withLogo = withStream.filter(e => e.l && e.l.url);
+const featured = withLogo.slice(0, 24);
+const popular = withLogo.slice(24, 48);
+
+// === CREATE DIRECTORIES ===
+mkdirSync(OUT, { recursive: true });
+mkdirSync(join(OUT, 'channel'), { recursive: true });
+mkdirSync(join(OUT, 'categories'), { recursive: true });
+mkdirSync(join(OUT, 'countries'), { recursive: true });
+mkdirSync(join(OUT, 'languages'), { recursive: true });
+mkdirSync(join(OUT, 'search'), { recursive: true });
+
+// === WRITE FILES ===
+console.log('Writing meta/stats/featured/popular/listing...');
+writeFileSync(join(OUT, 'meta.json'), JSON.stringify(meta));
 writeFileSync(join(OUT, 'stats.json'), JSON.stringify(stats, null, 2));
-writeFileSync(join(ROOT, 'static', 'generated', 'stats.json'), JSON.stringify(stats, null, 2));
+writeFileSync(join(OUT, 'featured.json'), JSON.stringify(featured));
+writeFileSync(join(OUT, 'popular.json'), JSON.stringify(popular));
+writeFileSync(join(OUT, 'listing.json'), JSON.stringify(listing));
+writeFileSync(join(OUT, 'search', 'index.json'), JSON.stringify(searchIndex));
 
-const sizes = ['channels.json', 'index.json', 'meta.json', 'stats.json']
-  .map(f => `${f}: ${(readFileSync(join(OUT, f)).length / 1024 / 1024).toFixed(2)} MB`);
+// === WRITE INDIVIDUAL CHANNEL FILES ===
+console.log(`Writing ${enriched.length} individual channel files...`);
+let chCount = 0;
+for (const ch of enriched) {
+  const sanitized = ch.i.replace(/[^a-zA-Z0-9._-]/g, '_');
+  writeFileSync(join(OUT, 'channel', `${sanitized}.json`), JSON.stringify(ch));
+  chCount++;
+  if (chCount % 5000 === 0) console.log(`  ${chCount}/${enriched.length} channels`);
+}
 
-console.log('Done!');
-console.log(sizes.join('\n'));
-console.log(`${channelsWithStreams} channels have resolved stream URLs (${(channelsWithStreams / enriched.length * 100).toFixed(1)}%)`);
+// === WRITE CATEGORY FILES ===
+console.log('Writing category files...');
+for (const [catId, catInfo] of Object.entries(categoryMap)) {
+  const chList = [];
+  for (const ch of listing) {
+    if (ch.ct && ch.ct.indexOf(catId) !== -1) {
+      chList.push(ch);
+    }
+  }
+  if (chList.length > 0) {
+    const sanitized = catId.replace(/[^a-zA-Z0-9._-]/g, '_');
+    writeFileSync(join(OUT, 'categories', `${sanitized}.json`), JSON.stringify({
+      id: catId, name: catInfo.name, description: catInfo.description,
+      channels: chList,
+    }));
+  }
+}
+
+// === WRITE COUNTRY FILES ===
+console.log('Writing country files...');
+for (const cc of Object.keys(countryMap)) {
+  const chList = [];
+  for (const ch of listing) {
+    if (ch.cy === cc) chList.push(ch);
+  }
+  if (chList.length > 0) {
+    const cinfo = countryMap[cc];
+    writeFileSync(join(OUT, 'countries', `${cc}.json`), JSON.stringify({
+      code: cc, name: cinfo.name, flag: cinfo.flag, languages: cinfo.languages,
+      channels: chList,
+    }));
+  }
+}
+
+// === WRITE LANGUAGE FILES ===
+console.log('Writing language files...');
+for (const langCode of Object.keys(languageMap)) {
+  const chList = [];
+  for (const ch of enriched) {
+    let hasLang = false;
+    for (const feed of ch.f) {
+      if (feed.lg && feed.lg.indexOf(langCode) !== -1) { hasLang = true; break; }
+    }
+    if (hasLang) {
+      chList.push({
+        i: ch.i, n: ch.n, cy: ch.cy, cn: ch.cn, cf: ch.cf,
+        ct: ch.ct, ctn: ch.ctn, l: ch.l ? { u: ch.l.url } : null,
+      });
+    }
+  }
+  if (chList.length > 0) {
+    writeFileSync(join(OUT, 'languages', `${langCode}.json`), JSON.stringify({
+      code: langCode, name: languageMap[langCode].name,
+      channels: chList,
+    }));
+  }
+}
+
+// === SIZES ===
+const files = ['meta.json', 'stats.json', 'featured.json', 'popular.json', 'listing.json', 'search/index.json'];
+console.log('\nFile sizes:');
+for (const f of files) {
+  const path = join(OUT, f);
+  try {
+    const size = (readFileSync(path).length / 1024).toFixed(1);
+    console.log(`  ${f}: ${size} KB`);
+  } catch {}
+}
+console.log(`  channel/: ${chCount} files`);
+console.log(`  categories/: ${Object.keys(categoryMap).length} files`);
+console.log(`  countries/: ${Object.keys(countryMap).length} files`);
+console.log(`  languages/: ${Object.keys(languageMap).length} files`);
+
+console.log(`\nDone! ${channelsWithStreams} channels have resolved stream URLs (${(channelsWithStreams / enriched.length * 100).toFixed(1)}%)`);

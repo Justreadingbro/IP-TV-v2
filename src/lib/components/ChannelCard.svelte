@@ -1,18 +1,27 @@
 <script>
   import { goto } from '$app/navigation';
   import { favoriteIds, toggleFavorite } from '$lib/stores/favorites.js';
+  import { onMount } from 'svelte';
 
-  let { channel, index: idx } = $props();
+  let { channel } = $props();
 
   let fav = $derived($favoriteIds.indexOf(channel.i) !== -1);
+  let logoFailed = $state(false);
+  let prefetched = $state(false);
+
+  const flag = $derived(channel.cf || '');
+  const country = $derived(channel.cn || channel.cy || '');
+  const cats = $derived(channel.ctn ? channel.ctn.slice(0, 3) : []);
+  const logoUrl = $derived(channel.l?.u || channel.l?.url || null);
+
+  function openDetail() {
+    const id = encodeURIComponent(channel.i);
+    goto(`/channel/${id}`);
+  }
 
   function toggleFav(e) {
     e.stopPropagation();
     toggleFavorite(channel.i);
-  }
-
-  function openDetail() {
-    goto(`/channel/${encodeURIComponent(channel.i)}`);
   }
 
   function onKeydown(e) {
@@ -22,12 +31,16 @@
     }
   }
 
-  let logoFailed = $state(false);
-  const logoUrl = $derived(channel.l?.url || null);
-  const flag = $derived(channel.cf || '');
-  const country = $derived(channel.cn || channel.cy || '');
-  const cats = $derived(channel.ctn ? channel.ctn.slice(0, 3) : []);
-  const feedCount = $derived(channel.f ? channel.f.length : 0);
+  function prefetchChannel() {
+    if (prefetched) return;
+    prefetched = true;
+    const sanitized = channel.i.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = `/generated/channel/${encodeURIComponent(sanitized)}.json`;
+    document.head.appendChild(link);
+    setTimeout(() => link.remove(), 4000);
+  }
 </script>
 
 <div
@@ -36,6 +49,7 @@
   tabindex="0"
   onclick={openDetail}
   onkeydown={onKeydown}
+  onmouseenter={prefetchChannel}
   aria-label="{channel.n}, {country}"
 >
   <div class="ch-card-logo">
@@ -61,9 +75,6 @@
         <span class="ch-badge blocked">Restricted</span>
       {/if}
     </div>
-    {#if feedCount > 0}
-      <div class="ch-card-feed-count">{feedCount} feed{feedCount > 1 ? 's' : ''}</div>
-    {/if}
   </div>
   <button
     class="fav-btn"
@@ -82,14 +93,14 @@
     border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;
     transition:transform .2s ease,box-shadow .2s ease,border-color .2s;
     position:relative;display:flex;flex-direction:column;
+    content-visibility:auto;contain-intrinsic-size:280px;
   }
   .ch-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.4);border-color:var(--accent-soft)}
   .ch-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .ch-card-logo{aspect-ratio:16/9;width:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden}
   .ch-card-logo img{max-width:80%;max-height:80%;object-fit:contain;transition:transform .3s ease}
   .ch-card:hover .ch-card-logo img{transform:scale(1.05)}
-  .card-logo-letter{display:block;font-size:28px;font-weight:600;color:var(--muted);font-family:var(--font-display)}
-  .card-logo-letter{display:none}
+  .card-logo-letter{display:none;font-size:28px;font-weight:600;color:var(--muted);font-family:var(--font-display)}
   .card-logo-letter.show{display:block}
   .ch-card-body{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column;min-width:0}
   .ch-card-name{font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -100,7 +111,6 @@
   .ch-badge.category{background:color-mix(in oklch, var(--accent) 12%, transparent);color:var(--accent)}
   .ch-badge.nsfw{background:color-mix(in oklch, var(--red) 12%, transparent);color:var(--red)}
   .ch-badge.blocked{background:color-mix(in oklch, var(--yellow) 12%, transparent);color:var(--yellow)}
-  .ch-card-feed-count{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:4px;opacity:.6}
   .fav-btn{position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.5);color:var(--muted);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s,color .15s;backdrop-filter:blur(4px)}
   .ch-card:hover .fav-btn,.fav-btn:focus-visible{opacity:1}
   .fav-btn.faved{opacity:1;color:var(--red)}

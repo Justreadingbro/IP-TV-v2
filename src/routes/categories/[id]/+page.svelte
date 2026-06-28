@@ -1,48 +1,56 @@
 <script>
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { meta, channels, loadChannels } from '$lib/stores/channels.js';
-  import { filteredIndices, activeFilters } from '$lib/stores/filters.js';
+  import { fetchCategory } from '$lib/services/data.js';
+  import { meta } from '$lib/stores/channels.js';
   import ChannelGrid from '$lib/components/ChannelGrid.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
+  let cat = $state(null);
+  let channels = $state([]);
+  let errMsg = $state(null);
 
-  const catName = $derived.by(() => {
-    const id = $page.params.id;
-    if ($meta) {
-      const c = $meta.categories.find(x => x.id === id);
-      return c?.name || id;
+  onMount(async () => {
+    try {
+      cat = await fetchCategory($page.params.id);
+      channels = cat.channels || [];
+    } catch (e) {
+      errMsg = `Category "${$page.params.id}" not found.`;
     }
-    return '';
-  });
-
-  onMount(() => {
-    const id = $page.params.id;
-    activeFilters.set({ country: null, category: id, language: null, nsfw: 0 });
-    loadChannels().then(() => { loading = false; });
+    loading = false;
   });
 </script>
 
 <svelte:head>
-  <title>{catName} — IPTV LUX</title>
+  <title>{cat?.name || 'Category'} — IPTV LUX</title>
 </svelte:head>
 
 {#if loading}
-  <LoadingSpinner message="Loading channels…" />
+  <LoadingSpinner message="Loading category…" />
+{:else if errMsg}
+  <div class="not-found">
+    <h2>Category not found</h2>
+    <p>{errMsg}</p>
+    <a href="/categories" class="back-link">All categories</a>
+  </div>
 {:else}
   <div class="page-header">
-    <a href="/categories" class="back-link">← Categories</a>
-    <h1 class="page-title">{catName}</h1>
-    <span class="page-count">{$filteredIndices.length.toLocaleString()} channels</span>
+    <a href="/categories" class="back-nav">← Categories</a>
+    <h1 class="page-title">{cat.name}</h1>
+    <p class="page-desc">{cat.description || ''} {channels.length.toLocaleString()} channels</p>
   </div>
-  <ChannelGrid indices={$filteredIndices} channels={$channels} pageSize={40} />
+  <ChannelGrid items={channels} pageSize={40} />
 {/if}
 
 <style>
   .page-header{margin-bottom:var(--gap-lg)}
-  .back-link{display:inline-block;font-size:13px;color:var(--muted);margin-bottom:8px;transition:color .12s}
-  .back-link:hover{color:var(--accent)}
+  .back-nav{font-size:13px;color:var(--muted);margin-bottom:6px;display:inline-block}
+  .back-nav:hover{color:var(--accent)}
   .page-title{font-family:var(--font-display);font-size:28px;font-weight:600}
-  .page-count{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:4px;display:block}
+  .page-desc{color:var(--muted);font-size:14px;margin-top:4px}
+  .not-found{text-align:center;padding:80px 20px}
+  .not-found h2{font-family:var(--font-display);font-size:22px;margin-bottom:6px}
+  .not-found p{color:var(--muted);margin-bottom:var(--gap-lg)}
+  .back-link{display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;border-radius:var(--radius);font-size:14px}
 </style>

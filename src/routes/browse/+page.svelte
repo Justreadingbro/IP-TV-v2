@@ -1,15 +1,22 @@
 <script>
   import { onMount } from 'svelte';
-  import { channels, loadChannels } from '$lib/stores/channels.js';
-  import { filteredIndices } from '$lib/stores/filters.js';
+  import { fetchListing } from '$lib/services/data.js';
+  import { activeFilters, filterListing } from '$lib/stores/filters.js';
   import FilterBar from '$lib/components/FilterBar.svelte';
   import ChannelGrid from '$lib/components/ChannelGrid.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
+  let all = $state([]);
+  let filtered = $state([]);
+
+  $effect(() => {
+    filtered = filterListing(all, $activeFilters);
+  });
 
   onMount(async () => {
-    await loadChannels();
+    all = await fetchListing();
+    filtered = filterListing(all, $activeFilters);
     loading = false;
   });
 </script>
@@ -23,10 +30,10 @@
 {:else}
   <div class="browse-header">
     <h1 class="browse-title">Browse</h1>
-    <span class="browse-count">{$filteredIndices.length.toLocaleString()} channels</span>
+    <span class="browse-count">{filtered.length.toLocaleString()} channels</span>
   </div>
-  <FilterBar />
-  <ChannelGrid indices={$filteredIndices} channels={$channels} pageSize={40} />
+  <FilterBar listing={all} />
+  <ChannelGrid items={filtered} pageSize={40} />
 {/if}
 
 <style>

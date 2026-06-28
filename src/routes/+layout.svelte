@@ -5,17 +5,13 @@
   import { onMount } from 'svelte';
   import { loadMeta } from '$lib/stores/channels.js';
 
-  let { children = () => '' } = $props();
+  let { children } = $props();
   let ready = $state(false);
   let err = $state(null);
 
   onMount(async () => {
-    try {
-      await loadMeta();
-      ready = true;
-    } catch (e) {
-      err = e.message;
-    }
+    try { await loadMeta(); ready = true; }
+    catch (e) { err = e.message; }
   });
 </script>
 
@@ -28,7 +24,9 @@
         <span>{err}</span>
       </div>
     {:else if ready}
-      {@render children()}
+      {#if children}
+        {@render children()}
+      {/if}
     {:else}
       <div class="loading-screen">
         <div class="spinner"></div>

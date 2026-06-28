@@ -1,21 +1,21 @@
 <script>
   import ChannelCard from './ChannelCard.svelte';
 
-  let { indices, channels: chs, pageSize = 40 } = $props();
+  let { items, pageSize = 40 } = $props();
 
   let sentinelEl = $state(null);
   let visible = $state(40);
 
   function loadMore() {
-    visible = Math.min(visible + pageSize, indices.length);
+    visible = Math.min(visible + pageSize, items.length);
   }
 
   $effect(() => {
-    visible = Math.min(pageSize, indices.length);
-    if (sentinelEl && indices.length > pageSize) {
+    visible = Math.min(pageSize, items.length);
+    if (sentinelEl && items.length > pageSize) {
       const obs = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) loadMore();
-      }, { rootMargin: '400px' });
+      }, { rootMargin: '600px' });
       obs.observe(sentinelEl);
       return () => obs.disconnect();
     }
@@ -23,7 +23,7 @@
 </script>
 
 <div class="grid-wrapper">
-  {#if !indices || indices.length === 0}
+  {#if !items || items.length === 0}
     <div class="empty-state">
       <div class="empty-icon">◬</div>
       <h3>No channels found</h3>
@@ -31,16 +31,16 @@
     </div>
   {:else}
     <div class="grid" role="list" aria-label="Channel grid">
-      {#each indices.slice(0, visible) as idx (idx)}
+      {#each items.slice(0, visible) as item (item.i)}
         <div role="listitem">
-          <ChannelCard channel={chs[idx]} {idx} />
+          <ChannelCard {channel}={item} />
         </div>
       {/each}
     </div>
-    {#if visible < indices.length}
+    {#if visible < items.length}
       <div bind:this={sentinelEl} class="sentinel"></div>
     {:else}
-      <div class="sentinel done">Showing all {indices.length.toLocaleString()} channels</div>
+      <div class="sentinel done">Showing all {items.length.toLocaleString()} channels</div>
     {/if}
   {/if}
 </div>

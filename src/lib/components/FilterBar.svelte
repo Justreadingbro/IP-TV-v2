@@ -1,7 +1,8 @@
 <script>
   import { meta } from '$lib/stores/channels.js';
-  import { activeFilters, resetFilters } from '$lib/stores/filters.js';
+  import { activeFilters, filterListing, resetFilters } from '$lib/stores/filters.js';
 
+  let { listing = [] } = $props();
   let openPanel = $state(null);
 
   function toggleFilter(type) {
@@ -48,10 +49,7 @@
   }
 
   function handleKeydown(e, type) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggleFilter(type);
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFilter(type); }
   }
 </script>
 
@@ -78,44 +76,23 @@
   <div class="filter-overlay" onclick={() => openPanel = null} role="presentation"></div>
   <div class="filter-panel" role="dialog" aria-label="{openPanel} filter">
     <div class="filter-panel-inner">
-      <button
-        class="filter-chip"
-        class:active={!$activeFilters[openPanel] && openPanel !== 'nsfw'}
-        onclick={() => setFilter(openPanel, openPanel === 'nsfw' ? 0 : null)}
-      >
-        Any {openPanel}
-      </button>
+      <button class="filter-chip" class:active={!$activeFilters[openPanel] && openPanel !== 'nsfw'} onclick={() => setFilter(openPanel, openPanel === 'nsfw' ? 0 : null)}>Any {openPanel}</button>
       {#if openPanel === 'country' && $meta}
         {#each $meta.countries as item}
-          <button
-            class="filter-chip"
-            class:active={$activeFilters.country === item.code}
-            onclick={() => setFilter('country', item.code)}
-          >
-            {item.flag ? item.flag + ' ' : ''}{item.name}
-            <span class="chip-count">{item.count.toLocaleString()}</span>
+          <button class="filter-chip" class:active={$activeFilters.country === item.code} onclick={() => setFilter('country', item.code)}>
+            {item.flag ? item.flag + ' ' : ''}{item.name} <span class="chip-count">{item.count.toLocaleString()}</span>
           </button>
         {/each}
       {:else if openPanel === 'category' && $meta}
         {#each $meta.categories as item}
-          <button
-            class="filter-chip"
-            class:active={$activeFilters.category === item.id}
-            onclick={() => setFilter('category', item.id)}
-          >
-            {item.name}
-            <span class="chip-count">{item.count.toLocaleString()}</span>
+          <button class="filter-chip" class:active={$activeFilters.category === item.id} onclick={() => setFilter('category', item.id)}>
+            {item.name} <span class="chip-count">{item.count.toLocaleString()}</span>
           </button>
         {/each}
       {:else if openPanel === 'language' && $meta}
         {#each $meta.languages as item}
-          <button
-            class="filter-chip"
-            class:active={$activeFilters.language === item.code}
-            onclick={() => setFilter('language', item.code)}
-          >
-            {item.name}
-            <span class="chip-count">{item.count.toLocaleString()}</span>
+          <button class="filter-chip" class:active={$activeFilters.language === item.code} onclick={() => setFilter('language', item.code)}>
+            {item.name} <span class="chip-count">{item.count.toLocaleString()}</span>
           </button>
         {/each}
       {:else if openPanel === 'nsfw'}
@@ -128,36 +105,18 @@
 {/if}
 
 <style>
-  .filterbar{
-    display:flex;align-items:center;gap:8px;padding:0 0 var(--gap);overflow-x:auto;
-    -webkit-overflow-scrolling:touch;position:relative;z-index:10;
-  }
+  .filterbar{display:flex;align-items:center;gap:8px;padding:0 0 var(--gap);overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative;z-index:10}
   .filterbar::-webkit-scrollbar{display:none}
-  .filter-select{
-    background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--radius-sm);padding:7px 12px;font-size:13px;color:var(--fg2);
-    white-space:nowrap;display:flex;align-items:center;gap:6px;
-    transition:border-color .15s,color .15s;flex-shrink:0;
-  }
+  .filter-select{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;font-size:13px;color:var(--fg2);white-space:nowrap;display:flex;align-items:center;gap:6px;transition:border-color .15s,color .15s;flex-shrink:0;cursor:pointer;font-family:inherit}
   .filter-select:hover{border-color:var(--muted)}
   .filter-select.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .arrow{font-size:8px;opacity:.6}
-  .filter-reset{margin-left:auto;font-size:12px;color:var(--muted);padding:6px 10px;border-radius:var(--radius-sm);transition:color .12s;flex-shrink:0}
+  .filter-reset{margin-left:auto;font-size:12px;color:var(--muted);padding:6px 10px;border-radius:var(--radius-sm);transition:color .12s;flex-shrink:0;background:none;border:none;cursor:pointer;font-family:inherit}
   .filter-reset:hover{color:var(--fg)}
   .filter-overlay{position:fixed;inset:0;z-index:50;background:transparent}
-  .filter-panel{
-    position:relative;z-index:51;
-    background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);
-    max-height:min(60vh,420px);overflow-y:auto;
-    padding:var(--gap) var(--gap-lg);margin-bottom:var(--gap);
-    box-shadow:0 12px 60px rgba(0,0,0,.5);
-  }
+  .filter-panel{position:relative;z-index:51;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);max-height:min(60vh,420px);overflow-y:auto;padding:var(--gap) var(--gap-lg);margin-bottom:var(--gap);box-shadow:0 12px 60px rgba(0,0,0,.5)}
   .filter-panel-inner{display:flex;flex-wrap:wrap;gap:6px}
-  .filter-chip{
-    padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;
-    background:var(--surface2);color:var(--fg2);border:1px solid var(--border);
-    transition:all .12s;white-space:nowrap;
-  }
+  .filter-chip{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;background:var(--surface2);color:var(--fg2);border:1px solid var(--border);transition:all .12s;white-space:nowrap;cursor:pointer;font-family:inherit}
   .filter-chip:hover{border-color:var(--muted)}
   .filter-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .chip-count{font-family:var(--font-mono);font-size:11px;opacity:.5;margin-left:4px}

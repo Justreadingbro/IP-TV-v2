@@ -1,14 +1,23 @@
 <script>
   import { onMount } from 'svelte';
-  import { channels, loadChannels } from '$lib/stores/channels.js';
   import { favoriteIds } from '$lib/stores/favorites.js';
+  import { fetchChannel } from '$lib/services/data.js';
   import ChannelCard from '$lib/components/ChannelCard.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
+  let favChannels = $state([]);
 
   onMount(async () => {
-    await loadChannels();
+    const ids = $favoriteIds;
+    const results = [];
+    for (const id of ids) {
+      try {
+        const ch = await fetchChannel(id);
+        results.push(ch);
+      } catch {}
+    }
+    favChannels = results;
     loading = false;
   });
 </script>
@@ -33,14 +42,11 @@
       <a href="/browse" class="browse-link">Browse channels</a>
     </div>
   {:else}
-    {#each $favoriteIds as favId}
-      {@const found = $channels.findIndex(c => c.i === favId)}
-      {#if found !== -1}
-        <div class="fav-item">
-          <ChannelCard channel={$channels[found]} index={found} />
-        </div>
-      {/if}
-    {/each}
+    <div class="fav-grid">
+      {#each favChannels as item (item.i)}
+        <ChannelCard {channel}={item} />
+      {/each}
+    </div>
   {/if}
 {/if}
 
@@ -54,5 +60,6 @@
   .empty-state p{font-size:14px;margin:0 0 var(--gap)}
   .browse-link{display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;border-radius:var(--radius);font-size:14px;font-weight:500;transition:opacity .12s}
   .browse-link:hover{opacity:.85}
-  .fav-item{margin-bottom:var(--gap)}
+  .fav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--gap)}
+  @media(max-width:640px){.fav-grid{grid-template-columns:repeat(2,1fr);gap:8px}}
 </style>

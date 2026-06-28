@@ -1,16 +1,20 @@
 <script>
   import { onMount } from 'svelte';
-  import { meta, channels, loadChannels } from '$lib/stores/channels.js';
+  import { meta } from '$lib/stores/channels.js';
+  import { fetchFeatured, fetchPopular } from '$lib/services/data.js';
   import ChannelCard from '$lib/components/ChannelCard.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
-  let recentChannels = $state([]);
+  let featured = $state([]);
+  let popular = $state([]);
 
   onMount(async () => {
-    await loadChannels();
-    // Show top channels by taking first 12
-    recentChannels = $channels.slice(0, 12).map((_, i) => i);
+    try {
+      const [f, p] = await Promise.all([fetchFeatured(), fetchPopular()]);
+      featured = f;
+      popular = p;
+    } catch {}
     loading = false;
   });
 </script>
@@ -54,11 +58,25 @@
       <a href="/browse" class="section-link">View all →</a>
     </div>
     <div class="home-grid">
-      {#each recentChannels as idx (idx)}
-        <ChannelCard channel={$channels[idx]} {idx} />
+      {#each featured as item (item.i)}
+        <ChannelCard {channel}={item} />
       {/each}
     </div>
   </section>
+
+  {#if popular.length > 0}
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">Popular channels</h2>
+        <a href="/browse" class="section-link">View all →</a>
+      </div>
+      <div class="home-grid">
+        {#each popular as item (item.i)}
+          <ChannelCard {channel}={item} />
+        {/each}
+      </div>
+    </section>
+  {/if}
 {/if}
 
 <style>

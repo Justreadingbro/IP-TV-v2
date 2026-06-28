@@ -2,38 +2,50 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { channels, index, loadChannels, loadIndex } from '$lib/stores/channels.js';
-  import { searchQuery, filteredIndices } from '$lib/stores/filters.js';
+  import { fetchSearchIndex } from '$lib/services/data.js';
+  import { searchQuery } from '$lib/stores/filters.js';
   import ChannelGrid from '$lib/components/ChannelGrid.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
-  let searchLoaded = $state(false);
+  let fuse = $state(null);
+  let searchData = $state([]);
+  let results = $state([]);
+  let query = $state('');
 
-  onMount(() => {
-    Promise.all([loadChannels(), loadIndex()]).then(() => {
-      searchLoaded = true;
-      loading = false;
-    });
-  });
-
-  function doSearch(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = new FormData(form);
-    const q = data.get('q')?.trim() || '';
-    searchQuery.set(q);
-    if (q.length >= 2 || q.length === 0) {
-      goto(q ? `/search?q=${encodeURIComponent(q)}` : '/search', { replaceState: true });
-    }
+  async function doSearch(q) {
+    if (!q || q.length < 2) { results = []; return; }
+    if (!fuse) return;
+    const r = fuse.search(q);
+    results = r.slice(0, 200).map(x => x.item);
   }
 
-  function onInput(e) {
+  $effect(() => {
+    const q = $page.url.searchParams.get('q') || '';
+    query = q;
+    if (q) searchQuery.set(q);
+    if (fuse) doSearch(q);
+  });
+
+  onMount(async () => {
+    const idx = await fetchSearchIndex();
+    searchData = idx;
+    const Fuse = (await import('fuse.js')).default;
+    fuse = new Fuse(idx, {
+      keys: ['n', 'a', 'cy', 'cn', 'ctn', 'ct'],
+      threshold: 0.3,
+      includeScore: true,
+      minMatchCharLength: 2,
+    });
+    const q = $page.url.searchParams.get('q') || '';
+    if (q) doSearch(q);
+    loading = false;
+  });
+
+  function onQueryChange(e) {
     const v = e.target.value;
-    searchQuery.set(v);
-    if (v.length >= 2 || v.length === 0) {
-      goto(v ? `/search?q=${encodeURIComponent(v)}` : '/search', { replaceState: true });
-    }
+    query = v;
+    goto(`/search?q=${encodeURIComponent(v)}`, { replaceState: true });
   }
 </script>
 
@@ -41,60 +53,47 @@
   <title>Search — IPTV LUX</title>
 </svelte:head>
 
+<div class="search-header">
+  <h1 class="search-title">Search</h1>
+  <div class="search-input-wrap">
+    <input
+      type="search"
+      value={query}
+      oninput={onQueryChange}
+      placeholder="Search channels, countries, categories…"
+      autocomplete="off"
+      class="search-input"
+    />
+  </div>
+</div>
+
 {#if loading}
   <LoadingSpinner message="Loading search…" />
+{:else if results.length > 0}
+  <p class="result-count">{results.length} result{results.length !== 1 ? 's' : ''} for "{query}"</p>
+  <ChannelGrid items={results} pageSize={20} />
+{:else if query && query.length >= 2}
+  <div class="empty-state">
+    <h3>No results for "{query}"</h3>
+    <p>Try a different search term.</p>
+  </div>
 {:else}
-  <div class="search-page">
-    <form class="search-form" onsubmit={doSearch} role="search">
-      <div class="search-bar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="search-icon"><circle cx="10" cy="10" r="7"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
-        <input
-          type="search"
-          name="q"
-          value={$page.url.searchParams.get('q') || ''}
-          placeholder="Search channels, countries, categories…"
-          autocomplete="off"
-          aria-label="Search"
-          oninput={onInput}
-        />
-      </div>
-    </form>
-
-    {#if $filteredIndices.length > 0}
-      <div class="results-header">
-        <h2>{$filteredIndices.length.toLocaleString()} result{$filteredIndices.length !== 1 ? 's' : ''}</h2>
-      </div>
-      <ChannelGrid indices={$filteredIndices} channels={$channels} pageSize={40} />
-    {:else if searchLoaded && $page.url.searchParams.get('q')}
-      <div class="no-results">
-        <div class="no-results-icon">◬</div>
-        <h3>No results found</h3>
-        <p>Try a different search term.</p>
-      </div>
-    {:else}
-      <div class="search-hint">
-        <h3>Search across {$channels.length.toLocaleString()} channels</h3>
-        <p>Type at least 2 characters to search by name, country, category, or language.</p>
-      </div>
-    {/if}
+  <div class="empty-state hint">
+    <h3>Search {searchData.length.toLocaleString()} channels</h3>
+    <p>Type at least 2 characters to search by name, country, or category.</p>
   </div>
 {/if}
 
 <style>
-  .search-page{max-width:1200px;margin:0 auto}
-  .search-form{margin-bottom:var(--gap-lg)}
-  .search-bar{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;transition:border-color .15s}
-  .search-bar:focus-within{border-color:var(--accent)}
-  .search-icon{color:var(--muted);flex-shrink:0;opacity:.6}
-  .search-bar input{flex:1;font-size:16px;background:transparent;color:var(--fg);min-width:0}
-  .search-bar input::placeholder{color:var(--muted)}
-  .results-header{margin-bottom:var(--gap)}
-  .results-header h2{font-family:var(--font-display);font-size:18px;font-weight:600}
-  .no-results{text-align:center;padding:60px 20px;color:var(--muted)}
-  .no-results-icon{font-size:40px;margin-bottom:12px;opacity:.4}
-  .no-results h3{font-family:var(--font-display);color:var(--fg2);margin:0 0 6px}
-  .no-results p{font-size:14px;margin:0}
-  .search-hint{text-align:center;padding:60px 20px;color:var(--muted)}
-  .search-hint h3{font-family:var(--font-display);color:var(--fg2);margin-bottom:8px}
-  .search-hint p{font-size:14px;max-width:400px;margin:0 auto}
+  .search-header{margin-bottom:var(--gap-lg)}
+  .search-title{font-family:var(--font-display);font-size:28px;font-weight:600;margin-bottom:var(--gap)}
+  .search-input-wrap{max-width:600px}
+  .search-input{width:100%;padding:10px 16px;font-size:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--fg);transition:border-color .15s}
+  .search-input:focus{border-color:var(--accent);outline:none}
+  .search-input::placeholder{color:var(--muted)}
+  .result-count{font-size:13px;color:var(--muted);font-family:var(--font-mono);margin-bottom:var(--gap)}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty-state.hint{padding-top:40px}
+  .empty-state h3{font-family:var(--font-display);color:var(--fg2);margin:0 0 6px}
+  .empty-state p{font-size:14px;margin:0}
 </style>

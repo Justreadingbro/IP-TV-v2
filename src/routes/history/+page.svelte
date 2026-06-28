@@ -1,22 +1,29 @@
 <script>
   import { onMount } from 'svelte';
-  import { channels, loadChannels } from '$lib/stores/channels.js';
+  import { fetchChannel } from '$lib/services/data.js';
   import { getHistory, clearHistory } from '$lib/services/storage.js';
   import ChannelCard from '$lib/components/ChannelCard.svelte';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
-  let historyIds = $state([]);
+  let historyChannels = $state([]);
 
   onMount(async () => {
-    await loadChannels();
-    historyIds = getHistory();
+    const ids = getHistory();
+    const results = [];
+    for (const id of ids) {
+      try {
+        const ch = await fetchChannel(id);
+        results.push(ch);
+      } catch {}
+    }
+    historyChannels = results;
     loading = false;
   });
 
   function clear() {
     clearHistory();
-    historyIds = [];
+    historyChannels = [];
   }
 </script>
 
@@ -30,12 +37,12 @@
   <div class="page-header">
     <h1 class="page-title">History</h1>
     <p class="page-desc">Recently viewed channels</p>
-    {#if historyIds.length > 0}
+    {#if historyChannels.length > 0}
       <button class="clear-btn" onclick={clear}>Clear history</button>
     {/if}
   </div>
 
-  {#if historyIds.length === 0}
+  {#if historyChannels.length === 0}
     <div class="empty-state">
       <div class="empty-icon">◷</div>
       <h3>No history yet</h3>
@@ -44,11 +51,8 @@
     </div>
   {:else}
     <div class="history-grid">
-      {#each historyIds as hid}
-        {@const found = $channels.findIndex(c => c.i === hid)}
-        {#if found !== -1}
-          <ChannelCard channel={$channels[found]} index={found} />
-        {/if}
+      {#each historyChannels as item (item.i)}
+        <ChannelCard {channel}={item} />
       {/each}
     </div>
   {/if}
@@ -58,7 +62,7 @@
   .page-header{margin-bottom:var(--gap-lg);position:relative}
   .page-title{font-family:var(--font-display);font-size:28px;font-weight:600}
   .page-desc{color:var(--muted);font-size:14px;margin-top:4px}
-  .clear-btn{position:absolute;top:0;right:0;font-size:12px;color:var(--muted);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);transition:all .12s}
+  .clear-btn{position:absolute;top:0;right:0;font-size:12px;color:var(--muted);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);transition:all .12s;background:none;cursor:pointer;font-family:inherit}
   .clear-btn:hover{color:var(--red);border-color:var(--red)}
   .empty-state{text-align:center;padding:80px 20px;color:var(--muted)}
   .empty-icon{font-size:48px;margin-bottom:12px;opacity:.3}

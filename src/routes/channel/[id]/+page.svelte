@@ -2,33 +2,27 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { channels, loadChannels } from '$lib/stores/channels.js';
+  import { fetchChannel } from '$lib/services/data.js';
   import { toggleFavorite, isFavorite } from '$lib/stores/favorites.js';
   import { addToHistory } from '$lib/services/storage.js';
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let loading = $state(true);
   let ch = $state(null);
-  let fav = $state(false);
+  let errMsg = $state(null);
   let logoFailed = $state(false);
 
+  let fav = $state(false);
+
   onMount(async () => {
-    const c = $channels.find(x => x.i === $page.params.id);
-    if (c) {
-      ch = c;
-      fav = isFavorite(c.i);
-      addToHistory(c.i);
-      loading = false;
-    } else {
-      await loadChannels();
-      const found = $channels.find(x => x.i === $page.params.id);
-      if (found) {
-        ch = found;
-        fav = isFavorite(found.i);
-        addToHistory(found.i);
-      }
-      loading = false;
+    try {
+      ch = await fetchChannel($page.params.id);
+      fav = isFavorite(ch.i);
+      addToHistory(ch.i);
+    } catch {
+      errMsg = `Channel "${$page.params.id}" not found.`;
     }
+    loading = false;
   });
 
   function toggleFav() {
@@ -37,13 +31,9 @@
   }
 
   function openPlayer(feedId, feedName) {
-    // Find the feed and use its resolved stream URL
     const feed = ch.f?.find(f => f.i === feedId);
     const src = feed?.u || '';
-    if (!src) {
-      alert('No playable stream URL available for this feed.');
-      return;
-    }
+    if (!src) { alert('No playable stream URL available for this feed.'); return; }
     const params = new URLSearchParams({ feed: feedId, name: feedName, src });
     if (feed?.ua) params.set('ua', feed.ua);
     if (feed?.rf) params.set('rf', feed.rf);
@@ -57,6 +47,12 @@
 
 {#if loading}
   <LoadingSpinner message="Loading channel…" />
+{:else if errMsg}
+  <div class="not-found">
+    <h2>Channel not found</h2>
+    <p>{errMsg}</p>
+    <a href="/browse" class="back-link">Browse channels</a>
+  </div>
 {:else if ch}
   <div class="detail-page">
     <button class="back-link" onclick={() => goto('/browse')}>← Back</button>
@@ -114,7 +110,9 @@
                     {/if}
                   </div>
                 </div>
-                <button class="play-btn" class:disabled={!feed.u} onclick={() => feed.u && openPlayer(feed.i, feed.n)} disabled={!feed.u} title={feed.u ? 'Play stream' : 'No stream URL available'}>{feed.u ? 'Play' : 'Offline'}</button>
+                <button class="play-btn" class:disabled={!feed.u} onclick={() => feed.u && openPlayer(feed.i, feed.n)} disabled={!feed.u} title={feed.u ? 'Play stream' : 'No stream URL available'}>
+                  {feed.u ? 'Play' : 'Offline'}
+                </button>
               </div>
             {/each}
           </div>
@@ -142,12 +140,6 @@
       </section>
     </div>
   </div>
-{:else}
-  <div class="not-found">
-    <h2>Channel not found</h2>
-    <p>The channel "{decodeURIComponent($page.params.id)}" doesn't exist.</p>
-    <a href="/browse" class="back-link">Browse channels</a>
-  </div>
 {/if}
 
 <style>
@@ -157,8 +149,7 @@
   .detail-header{display:flex;gap:var(--gap-lg);margin-bottom:var(--gap-xl)}
   .detail-logo{width:200px;height:112px;flex-shrink:0;background:var(--surface2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden}
   .detail-logo img{max-width:80%;max-height:80%;object-fit:contain}
-  .logo-letter{display:block;font-size:36px;font-weight:600;color:var(--muted);font-family:var(--font-display)}
-  .logo-letter{display:none}
+  .logo-letter{display:none;font-size:36px;font-weight:600;color:var(--muted);font-family:var(--font-display)}
   .logo-letter.show{display:block}
   .detail-info{min-width:0;flex:1}
   .detail-name{font-family:var(--font-display);font-size:28px;line-height:1.2;margin-bottom:4px}
@@ -170,7 +161,7 @@
   .tag.category{background:var(--accent-soft);color:var(--accent)}
   .tag.nsfw{background:color-mix(in oklch, var(--red) 12%, transparent);color:var(--red)}
   .tag.blocked{background:color-mix(in oklch, var(--yellow) 12%, transparent);color:var(--yellow)}
-  .fav-btn-lg{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-size:13px;transition:all .12s}
+  .fav-btn-lg{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-size:13px;transition:all .12s;cursor:pointer}
   .fav-btn-lg:hover{border-color:var(--muted)}
   .fav-btn-lg.faved{background:color-mix(in oklch, var(--red) 12%, transparent);border-color:var(--red);color:var(--red)}
   .detail-body{display:flex;flex-direction:column;gap:var(--gap-xl)}
@@ -181,8 +172,9 @@
   .feed-name{font-size:14px;font-weight:500}
   .feed-meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px}
   .feed-format{font-family:var(--font-mono);font-size:11px;color:var(--accent)}
-  .play-btn{padding:8px 20px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-size:13px;font-weight:500;transition:opacity .12s;flex-shrink:0;margin-left:var(--gap)}
+  .play-btn{padding:8px 20px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-size:13px;font-weight:500;transition:opacity .12s;flex-shrink:0;margin-left:var(--gap);cursor:pointer;border:none}
   .play-btn:hover{opacity:.85}
+  .play-btn:disabled{background:var(--surface2);color:var(--muted);opacity:.5;cursor:not-allowed}
   .no-data{color:var(--muted);font-size:14px;padding:20px 0}
   .info-table{width:100%;font-size:14px;border-collapse:collapse}
   .info-table td{padding:6px 12px;vertical-align:top;border-bottom:1px solid var(--border)}
