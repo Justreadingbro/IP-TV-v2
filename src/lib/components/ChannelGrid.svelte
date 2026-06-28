@@ -33,7 +33,7 @@
     <div class="grid" role="list" aria-label="Channel grid">
       {#each items.slice(0, visible) as item (item.i)}
         <div role="listitem">
-          <ChannelCard {channel}={item} />
+          <ChannelCard channel={item} />
         </div>
       {/each}
     </div>

@@ -44,7 +44,7 @@
   {:else}
     <div class="fav-grid">
       {#each favChannels as item (item.i)}
-        <ChannelCard {channel}={item} />
+        <ChannelCard channel={item} />
       {/each}
     </div>
   {/if}

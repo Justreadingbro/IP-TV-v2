@@ -59,7 +59,7 @@
     </div>
     <div class="home-grid">
       {#each featured as item (item.i)}
-        <ChannelCard {channel}={item} />
+        <ChannelCard channel={item} />
       {/each}
     </div>
   </section>
@@ -72,7 +72,7 @@
       </div>
       <div class="home-grid">
         {#each popular as item (item.i)}
-          <ChannelCard {channel}={item} />
+          <ChannelCard channel={item} />
         {/each}
       </div>
     </section>

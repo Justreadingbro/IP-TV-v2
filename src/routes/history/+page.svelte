@@ -52,7 +52,7 @@
   {:else}
     <div class="history-grid">
       {#each historyChannels as item (item.i)}
-        <ChannelCard {channel}={item} />
+        <ChannelCard channel={item} />
       {/each}
     </div>
   {/if}
