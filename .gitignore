@@ -38,3 +38,5 @@ npm-debug.log*
 
 # Misc
 *.local
+'generated/' 
+'static/generated/' 
